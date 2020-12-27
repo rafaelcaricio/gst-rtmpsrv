@@ -1,0 +1,23 @@
+[package]
+name = "gst-rtmpsrv"
+description = "GStreamer Plugin that creates a server that is capable of receiving a RTMP stream"
+version = "0.1.0"
+authors = ["Rafael Caricio <rafael@caricio.com>"]
+repository = "https://github.com/rafaelcaricio/gst-rtmpsrv"
+edition = "2018"
+
+[lib]
+name = "rtmpsrv"
+crate-type = ["cdylib", "rlib", "staticlib"]
+path = "src/lib.rs"
+
+[dependencies]
+glib = { git = "https://github.com/gtk-rs/gtk-rs" }
+gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", features = ["v1_12"] }
+gst-base = { package = "gstreamer-base", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", features = ["v1_12"] }
+gst-video = { package = "gstreamer-video", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", features = ["v1_12"] }
+gst-audio = { package = "gstreamer-audio", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", features = ["v1_12"] }
+once_cell = "1.0"
+
+[build-dependencies]
+gst-plugin-version-helper = { git = "https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs" }
