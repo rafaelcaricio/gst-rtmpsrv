@@ -1,7 +1,7 @@
 use glib::prelude::*;
 
-mod imp;
 mod connection;
+mod imp;
 mod server;
 
 glib::wrapper! {
