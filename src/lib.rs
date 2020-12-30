@@ -1,9 +1,11 @@
 use glib::prelude::*;
 
 mod imp;
+mod connection;
+mod server;
 
 glib::wrapper! {
-    pub struct RtmpSrvSrc(ObjectSubclass<imp::RtmpSvrSrc>) @extends gst_base::BaseSrc, gst::Element, gst::Object;
+    pub struct RtmpSrvSrc(ObjectSubclass<imp::RtmpSvrSrc>) @extends gst_base::PushSrc, gst_base::BaseSrc, gst::Element, gst::Object;
 }
 
 unsafe impl Send for RtmpSrvSrc {}
