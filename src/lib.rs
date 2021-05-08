@@ -1,6 +1,7 @@
 use glib::prelude::*;
 
 mod connection;
+mod data;
 mod imp;
 mod server;
 

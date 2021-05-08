@@ -1,3 +1,5 @@
+// Based on the example code in: https://github.com/KallDrexx/rust-media-libs/blob/master/examples/threaded_rtmp_server/src/server.rs
+use crate::data::{Media, MediaType, RtmpInput};
 use bytes::Bytes;
 use rml_rtmp::chunk_io::Packet;
 use rml_rtmp::sessions::StreamMetadata;
@@ -8,6 +10,7 @@ use rml_rtmp::time::RtmpTimestamp;
 use slab::Slab;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::mpsc::Sender;
 
 enum ClientAction {
     Waiting,
@@ -63,14 +66,18 @@ pub struct Server {
     clients: Slab<Client>,
     connection_to_client_map: HashMap<usize, usize>,
     channels: HashMap<String, MediaChannel>,
+    media_sink: Sender<RtmpInput>,
+    has_received_keyframe: bool,
 }
 
 impl Server {
-    pub fn new() -> Server {
-        Server {
-            clients: Slab::with_capacity(1024),
-            connection_to_client_map: HashMap::with_capacity(1024),
+    pub fn new(media_sink: Sender<RtmpInput>) -> Self {
+        Self {
+            clients: Slab::with_capacity(8),
+            connection_to_client_map: HashMap::with_capacity(8),
             channels: HashMap::new(),
+            media_sink,
+            has_received_keyframe: false,
         }
     }
 
@@ -514,9 +521,11 @@ impl Server {
             None => return,
         };
 
+        self.media_sink
+            .send(RtmpInput::Metadata(metadata.clone()))
+            .unwrap();
         let metadata = Rc::new(metadata);
         channel.metadata = Some(metadata.clone());
-
         // Send the metadata to all current watchers
         for client_id in &channel.watching_client_ids {
             let client = match self.clients.get_mut(*client_id) {
@@ -577,6 +586,48 @@ impl Server {
                 if is_audio_sequence_header(data.clone()) {
                     channel.audio_sequence_header = Some(data.clone());
                 }
+            }
+        }
+
+        // send to gstreamer element
+        {
+            let should_send_to_client = match data_type {
+                ReceivedDataType::Video => {
+                    self.has_received_keyframe
+                        || (is_video_sequence_header(data.clone())
+                            || is_video_keyframe(data.clone()))
+                }
+
+                ReceivedDataType::Audio => {
+                    self.has_received_keyframe || is_audio_sequence_header(data.clone())
+                }
+            };
+            if should_send_to_client {
+                match data_type {
+                    ReceivedDataType::Audio => self
+                        .media_sink
+                        .send(RtmpInput::Media(Media {
+                            media_type: MediaType::Audio,
+                            data: data.clone(),
+                            timestamp: timestamp.value,
+                            can_be_dropped: true,
+                        }))
+                        .unwrap(),
+                    ReceivedDataType::Video => {
+                        if is_video_keyframe(data.clone()) {
+                            self.has_received_keyframe = true;
+                        }
+
+                        self.media_sink
+                            .send(RtmpInput::Media(Media {
+                                media_type: MediaType::Video,
+                                data: data.clone(),
+                                timestamp: timestamp.value,
+                                can_be_dropped: true,
+                            }))
+                            .unwrap();
+                    }
+                };
             }
         }
 
